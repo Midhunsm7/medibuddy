@@ -4,8 +4,8 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
-  // Check for custom session in cookies
-  const customSession = req.cookies.get('custom_session')?.value
+  // Check for custom session in cookies with better error handling
+  const customSessionCookie = req.cookies.get('custom_session')?.value
 
   const protectedRoutes = ['/reminders', '/profile', '/settings']
   const authRoutes = ['/login', '/signup']
@@ -19,22 +19,31 @@ export async function middleware(req: NextRequest) {
 
   // Check if session exists and is valid
   let hasValidSession = false
-  if (customSession) {
+  if (customSessionCookie) {
     try {
-      const session = JSON.parse(customSession)
+      // Decode the cookie value (it might be URL encoded)
+      const decodedSession = decodeURIComponent(customSessionCookie)
+      const session = JSON.parse(decodedSession)
+      
       // Check if session is not expired
       if (session.expires_at && new Date(session.expires_at) > new Date()) {
         hasValidSession = true
       }
-    } catch {
-      // Invalid session format
+    } catch (error) {
+      // Invalid session format - clear the invalid cookie
+      console.error('Invalid session cookie:', error)
       hasValidSession = false
     }
   }
 
   // Redirect to login if accessing protected route without session
   if (!hasValidSession && isProtectedRoute) {
-    return NextResponse.redirect(new URL('/login', req.url))
+    const response = NextResponse.redirect(new URL('/login', req.url))
+    // Clear invalid session cookie if present
+    if (customSessionCookie) {
+      response.cookies.delete('custom_session')
+    }
+    return response
   }
 
   // Redirect to reminders if accessing auth routes with valid session

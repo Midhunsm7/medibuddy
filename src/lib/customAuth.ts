@@ -29,25 +29,32 @@ export const customSignUp = async (
   phone?: string
 ): Promise<{ user: CustomUser | null; error: Error | null }> => {
   try {
+    console.log('Attempting sign up for:', email);
+    
+    const normalizedEmail = email.trim().toLowerCase();
+    
     // Check if user already exists
     const { data: existingUser } = await supabase
       .from('custom_users')
       .select('*')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .single();
 
     if (existingUser) {
+      console.error('User already exists');
       return {
         user: null,
         error: new Error('User with this email already exists')
       };
     }
 
+    console.log('Creating new user');
+    
     // Create new user
     const { data: newUser, error } = await supabase
       .from('custom_users')
       .insert({
-        email,
+        email: normalizedEmail,
         password, // Plain text for testing only!
         full_name: fullName,
         phone
@@ -55,10 +62,15 @@ export const customSignUp = async (
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
 
+    console.log('User created successfully');
     return { user: newUser, error: null };
   } catch (error: any) {
+    console.error('Sign up error:', error);
     return { user: null, error };
   }
 };
@@ -69,20 +81,33 @@ export const customSignIn = async (
   password: string
 ): Promise<{ session: CustomSession | null; error: Error | null }> => {
   try {
+    console.log('Attempting sign in for:', email);
+    
     // Find user with matching email and password
     const { data: user, error } = await supabase
       .from('custom_users')
       .select('*')
-      .eq('email', email)
+      .eq('email', email.trim().toLowerCase())
       .eq('password', password)
       .single();
 
-    if (error || !user) {
+    if (error) {
+      console.error('Supabase query error:', error);
       return {
         session: null,
         error: new Error('Invalid email or password')
       };
     }
+
+    if (!user) {
+      console.error('No user found with provided credentials');
+      return {
+        session: null,
+        error: new Error('Invalid email or password')
+      };
+    }
+
+    console.log('User found, creating session');
 
     // Create session
     const token = generateToken();
@@ -114,23 +139,43 @@ export const customSignIn = async (
 
     if (typeof window !== 'undefined') {
       const sessionStr = JSON.stringify(session);
-      localStorage.setItem('custom_session', sessionStr);
+      
+      try {
+        localStorage.setItem('custom_session', sessionStr);
+        console.log('Session saved to localStorage');
+      } catch (storageError) {
+        console.error('Failed to save to localStorage:', storageError);
+      }
       
       // Set cookie with proper mobile-compatible settings
       const isProduction = window.location.protocol === 'https:';
-      const cookieOptions = [
-        `custom_session=${encodeURIComponent(sessionStr)}`,
-        'path=/',
-        `max-age=${7 * 24 * 60 * 60}`,
-        'SameSite=None', // Changed from Lax to None for mobile compatibility
-        isProduction ? 'Secure' : '' // Secure flag required with SameSite=None
-      ].filter(Boolean).join('; ');
+      
+      // For local development (HTTP), use SameSite=Lax
+      // For production (HTTPS), use SameSite=None with Secure flag
+      const cookieOptions = isProduction
+        ? [
+            `custom_session=${encodeURIComponent(sessionStr)}`,
+            'path=/',
+            `max-age=${7 * 24 * 60 * 60}`,
+            'SameSite=None',
+            'Secure'
+          ].join('; ')
+        : [
+            `custom_session=${encodeURIComponent(sessionStr)}`,
+            'path=/',
+            `max-age=${7 * 24 * 60 * 60}`,
+            'SameSite=Lax'
+          ].join('; ');
       
       document.cookie = cookieOptions;
+      console.log('Session cookie set with options:', cookieOptions);
+      console.log('Protocol:', window.location.protocol, 'isProduction:', isProduction);
     }
 
+    console.log('Sign in successful');
     return { session, error: null };
   } catch (error: any) {
+    console.error('Sign in error:', error);
     return { session: null, error };
   }
 };

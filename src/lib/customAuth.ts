@@ -116,8 +116,17 @@ export const customSignIn = async (
       const sessionStr = JSON.stringify(session);
       localStorage.setItem('custom_session', sessionStr);
       
-      // Also set as cookie for middleware
-      document.cookie = `custom_session=${encodeURIComponent(sessionStr)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+      // Set cookie with proper mobile-compatible settings
+      const isProduction = window.location.protocol === 'https:';
+      const cookieOptions = [
+        `custom_session=${encodeURIComponent(sessionStr)}`,
+        'path=/',
+        `max-age=${7 * 24 * 60 * 60}`,
+        'SameSite=None', // Changed from Lax to None for mobile compatibility
+        isProduction ? 'Secure' : '' // Secure flag required with SameSite=None
+      ].filter(Boolean).join('; ');
+      
+      document.cookie = cookieOptions;
     }
 
     return { session, error: null };

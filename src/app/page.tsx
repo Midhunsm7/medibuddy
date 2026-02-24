@@ -76,8 +76,8 @@ export default function Home() {
   const stats = [
     { value: '10K+', label: 'Active Users' },
     { value: '99.9%', label: 'Uptime' },
-    { value: '50K+', label: 'Reminders Sent' },
-    { value: '4.9★', label: 'User Rating' }
+    { value: '50K+', label: 'Reminders Capacity' },
+    { value: '4.9★', label: 'User acceptance' }
   ];
 
   return (
